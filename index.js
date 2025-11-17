@@ -31,6 +31,9 @@ app.use(express.json());
 // should be handled by the 'auth.js' router file.
 app.use('/api/auth', require('./routes/auth'));
 
+// This tells Express to use our new 'tracks.js' router
+app.use('/api/tracks', require('./routes/tracks'));
+
 // Define a "port" for your server to listen on.
 const PORT = process.env.PORT || 3001;
 
