@@ -1,18 +1,31 @@
 // Import the Express package
 const express = require('express');
+const mongoose = require('mongoose');
+const dotenv = require('dotenv');
+
+// Load environment variables from .env file
+dotenv.config();
 
 // Initialize an Express application
 const app = express();
 
 // Define a "port" for your server to listen on.
-// 3001 is a common choice for a backend dev server.
 const PORT = process.env.PORT || 3001;
 
+// --- Connect to MongoDB ---
+mongoose.connect(process.env.MONGO_URI, {
+  useNewUrlParser: true, // These are options to handle deprecation warnings
+  useUnifiedTopology: true
+})
+.then(() => {
+  console.log('MongoDB connected successfully!');
+})
+.catch((err) => {
+  console.error('MongoDB connection error:', err);
+});
+
 // Create your first "route"
-// This tells the server what to do if someone visits the main URL ("/")
-// A "GET" request is what a browser does when you visit a URL.
 app.get('/', (req, res) => {
-  // res.send() sends a simple text response back
   res.send('Hello from the EchoPlay-V2 Backend! 🔥');
 });
 
