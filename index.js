@@ -1,4 +1,4 @@
-// Import the Express package
+// index.js
 const express = require('express');
 const mongoose = require('mongoose');
 const dotenv = require('dotenv');
@@ -9,12 +9,9 @@ dotenv.config();
 // Initialize an Express application
 const app = express();
 
-// Define a "port" for your server to listen on.
-const PORT = process.env.PORT || 3001;
-
 // --- Connect to MongoDB ---
 mongoose.connect(process.env.MONGO_URI, {
-  useNewUrlParser: true, // These are options to handle deprecation warnings
+  useNewUrlParser: true,
   useUnifiedTopology: true
 })
 .then(() => {
@@ -24,7 +21,20 @@ mongoose.connect(process.env.MONGO_URI, {
   console.error('MongoDB connection error:', err);
 });
 
-// Create your first "route"
+// --- Middlewares ---
+// This is the 'JSON translator'
+// It parses incoming requests with JSON payloads
+app.use(express.json());
+
+// --- Routes ---
+// This tells Express that any request starting with '/api/auth'
+// should be handled by the 'auth.js' router file.
+app.use('/api/auth', require('./routes/auth'));
+
+// Define a "port" for your server to listen on.
+const PORT = process.env.PORT || 3001;
+
+// Our old 'hello world' route (can be removed, but good for testing)
 app.get('/', (req, res) => {
   res.send('Hello from the EchoPlay-V2 Backend! 🔥');
 });
