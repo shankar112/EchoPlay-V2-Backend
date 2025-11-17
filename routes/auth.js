@@ -4,6 +4,7 @@ const router = express.Router();
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken"); // Import jsonwebtoken
 const User = require("../models/User"); // Import our User model
+const authMiddleware = require('../middleware/auth'); // <-- IMPORT THE BOUNCER
 
 // --- Helper function to create a token ---
 // We make this a function because we'll use it in /register AND /login
@@ -84,6 +85,34 @@ router.post("/login", async (req, res) => {
   } catch (err) {
     console.error(err.message);
     res.status(500).send("Server Error");
+  }
+});
+
+// @route   GET api/auth/me
+// @desc    Get logged in user's data
+// @access  Private (this is where we use the middleware!)
+
+// Notice we add 'authMiddleware' as a second argument.
+// Express will run authMiddleware FIRST. If it calls next(),
+// then it will run the (req, res) => {...} function.
+router.get('/me', authMiddleware, async (req, res) => {
+  try {
+    // The middleware added 'req.user' for us
+    // 'req.user.id' came from the token payload
+
+    // We find the user in the DB but .select('-password')
+    // tells mongoose to NOT send back the hashed password
+    const user = await User.findById(req.user.id).select('-password');
+
+    if (!user) {
+      return res.status(404).json({ msg: 'User not found' });
+    }
+
+    res.json(user); // Send back the user's data (username, email, id, etc.)
+
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).send('Server Error');
   }
 });
 
