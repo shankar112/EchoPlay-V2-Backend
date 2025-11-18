@@ -92,7 +92,19 @@ router.get('/', async (req, res) => {
     res.status(500).json({ msg: "Server Error", error: err.message });
   }
 });
-
+// @route   GET api/tracks/my-tracks
+// @desc    Get all tracks uploaded by the current user
+// @access  Private
+router.get('/my-tracks', authMiddleware, async (req, res) => {
+  try {
+    // Find tracks where 'uploadedBy' matches the logged-in user's ID
+    const tracks = await Track.find({ uploadedBy: req.user.id }).sort({ createdAt: -1 });
+    res.json(tracks);
+  } catch (err) {
+    console.error("GET /api/tracks/my-tracks ERROR:", err);
+    res.status(500).json({ msg: "Server Error", error: err.message });
+  }
+});
 // @route   GET api/tracks/:id
 // @desc    Get a single track by its ID
 // @access  Public
