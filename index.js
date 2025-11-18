@@ -1,18 +1,43 @@
-// Import the Express package
+// index.js
 const express = require('express');
+const mongoose = require('mongoose');
+const dotenv = require('dotenv');
+
+// Load environment variables from .env file
+dotenv.config();
 
 // Initialize an Express application
 const app = express();
 
+// --- Connect to MongoDB ---
+mongoose.connect(process.env.MONGO_URI, {
+  useNewUrlParser: true,
+  useUnifiedTopology: true
+})
+.then(() => {
+  console.log('MongoDB connected successfully!');
+})
+.catch((err) => {
+  console.error('MongoDB connection error:', err);
+});
+
+// --- Middlewares ---
+// This is the 'JSON translator'
+// It parses incoming requests with JSON payloads
+app.use(express.json());
+
+// --- Routes ---
+// This tells Express that any request starting with '/api/auth'
+// should be handled by the 'auth.js' router file.
+app.use('/api/auth', require('./routes/auth'));
+app.use('/api/tracks', require('./routes/tracks'));
+app.use('/api/playlists', require('./routes/playlists'));
+
 // Define a "port" for your server to listen on.
-// 3001 is a common choice for a backend dev server.
 const PORT = process.env.PORT || 3001;
 
-// Create your first "route"
-// This tells the server what to do if someone visits the main URL ("/")
-// A "GET" request is what a browser does when you visit a URL.
+// Our old 'hello world' route (can be removed, but good for testing)
 app.get('/', (req, res) => {
-  // res.send() sends a simple text response back
   res.send('Hello from the EchoPlay-V2 Backend! 🔥');
 });
 
