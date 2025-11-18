@@ -5,34 +5,33 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 const Track = require('../models/Track');
-const authMiddleware = require('../middleware/auth'); // Our "bouncer"
+const authMiddleware = require('../middleware/auth');
 
-// --- Create 'uploads' directories if they don't exist ---
-// This is good practice to ensure our upload paths are valid
-const musicDir = path.join(__dirname, '..', 'uploads', 'music');
-const imageDir = path.join(__dirname, '..', 'uploads', 'images');
+// Define Upload Directory (reads from .env)
+const uploadDir = process.env.UPLOAD_DIR || 'uploads';
+
+// Create 'uploads' directories if they don't exist
+const musicDir = path.join(__dirname, '..', uploadDir, 'music');
+const imageDir = path.join(__dirname, '..', uploadDir, 'images');
 
 if (!fs.existsSync(musicDir)) fs.mkdirSync(musicDir, { recursive: true });
 if (!fs.existsSync(imageDir)) fs.mkdirSync(imageDir, { recursive: true });
 
-// --- Multer Storage Configuration ---
+// Multer Storage Configuration
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
-    // We check the 'fieldname' to decide the folder
     if (file.fieldname === 'trackFile') {
-      cb(null, musicDir); // Save music to 'uploads/music'
+      cb(null, musicDir);
     } else if (file.fieldname === 'coverArt') {
-      cb(null, imageDir); // Save images to 'uploads/images'
+      cb(null, imageDir);
     }
   },
   filename: (req, file, cb) => {
-    // Create a unique filename: timestamp + originalname
     const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
     cb(null, file.fieldname + '-' + uniqueSuffix + path.extname(file.originalname));
   }
 });
 
-// Initialize multer with our storage config
 const upload = multer({ storage: storage });
 
 // @route   POST api/tracks
@@ -40,20 +39,15 @@ const upload = multer({ storage: storage });
 // @access  Private
 router.post(
   '/',
-  authMiddleware, // First, check if user is logged in
-  upload.fields([ // Then, handle the file uploads
+  authMiddleware,
+  upload.fields([
     { name: 'trackFile', maxCount: 1 },
     { name: 'coverArt', maxCount: 1 }
   ]),
   async (req, res) => {
-    // 1. Get text data from the request body
     const { title, artist, album, duration } = req.body;
-
-    // 2. Get file data from multer (req.files)
-    // 'req.user.id' comes from authMiddleware
     const { trackFile, coverArt } = req.files;
 
-    // 3. Check if files were uploaded
     if (!trackFile) {
       return res.status(400).json({ msg: 'No track file uploaded' });
     }
@@ -62,38 +56,40 @@ router.post(
     }
 
     try {
-      // 4. Create new Track instance
+      // --- THIS IS THE CRITICAL FIX ---
+      // We are building the PUBLIC URL, not saving the private system path.
       const newTrack = new Track({
         title,
         artist,
         album,
         duration,
-        filePath: trackFile[0].path,     // Path to the MP3
-        coverArtPath: coverArt[0].path,  // Path to the image
-        uploadedBy: req.user.id          // The logged-in user's ID
+        filePath: `/static/music/${trackFile[0].filename}`,     // <-- THE FIX
+        coverArtPath: `/static/images/${coverArt[0].filename}`, // <-- THE FIX
+        uploadedBy: req.user.id
       });
 
-      // 5. Save track to database
       const track = await newTrack.save();
       res.status(201).json(track);
 
     } catch (err) {
-      console.error(err.message);
-      res.status(500).send('Server Error');
+      console.error("ERROR UPLOADING TRACK:", err);
+      res.status(500).json({ msg: "Server Error", error: err.message });
     }
   }
 );
+
+// --- All other routes are correct ---
 
 // @route   GET api/tracks
 // @desc    Get all tracks
 // @access  Public
 router.get('/', async (req, res) => {
   try {
-    const tracks = await Track.find().sort({ createdAt: -1 }); // Get newest first
+    const tracks = await Track.find().sort({ createdAt: -1 });
     res.json(tracks);
   } catch (err) {
-    console.error(err.message);
-    res.status(500).send('Server Error');
+    console.error("GET /api/tracks ERROR:", err);
+    res.status(500).json({ msg: "Server Error", error: err.message });
   }
 });
 
@@ -108,8 +104,8 @@ router.get('/:id', async (req, res) => {
     }
     res.json(track);
   } catch (err) {
-    console.error(err.message);
-    res.status(500).send('Server Error');
+    console.error("GET /api/tracks/:id ERROR:", err);
+    res.status(500).json({ msg: "Server Error", error: err.message });
   }
 });
 
