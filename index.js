@@ -3,7 +3,7 @@ const express = require("express");
 const mongoose = require("mongoose");
 const dotenv = require("dotenv");
 const path = require("path");
-const cors = require('cors'); // <-- 1. IMPORT CORS
+const cors = require("cors");
 
 // Load environment variables
 dotenv.config();
@@ -12,7 +12,7 @@ dotenv.config();
 const app = express();
 
 // --- Middlewares ---
-app.use(cors()); // <-- 2. USE CORS (This is the fix!)
+app.use(cors());
 app.use(express.json());
 
 // --- Connect to MongoDB ---
@@ -28,9 +28,20 @@ mongoose
     console.error("MongoDB connection error:", err);
   });
 
-// --- Serve Static Files ---
+// --- FIX: Serve Static Files Correctly ---
 const uploadDir = process.env.UPLOAD_DIR || 'uploads';
-app.use('/static', express.static(path.join(__dirname, uploadDir)));
+let staticPath;
+
+// If the path starts with '/' (like /var/data/uploads), treat it as absolute (Render)
+if (path.isAbsolute(uploadDir)) {
+  staticPath = uploadDir;
+} else {
+  // Otherwise, treat it as relative to this file (Localhost)
+  staticPath = path.join(__dirname, uploadDir);
+}
+
+console.log(`Serving static files from: ${staticPath}`); // Debug log
+app.use('/static', express.static(staticPath));
 
 // --- Routes ---
 app.use("/api/auth", require("./routes/auth"));
