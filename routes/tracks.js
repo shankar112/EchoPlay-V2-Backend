@@ -7,13 +7,22 @@ const fs = require('fs');
 const Track = require('../models/Track');
 const authMiddleware = require('../middleware/auth');
 
-// Define Upload Directory (reads from .env)
+// Define Upload Directory
 const uploadDir = process.env.UPLOAD_DIR || 'uploads';
+let musicDir, imageDir;
 
-// Create 'uploads' directories if they don't exist
-const musicDir = path.join(__dirname, '..', uploadDir, 'music');
-const imageDir = path.join(__dirname, '..', uploadDir, 'images');
+// --- FIX: Handle Absolute Paths vs Relative Paths ---
+if (path.isAbsolute(uploadDir)) {
+  // If absolute (Render), use it directly
+  musicDir = path.join(uploadDir, 'music');
+  imageDir = path.join(uploadDir, 'images');
+} else {
+  // If relative (Localhost), go up one level from 'routes' folder
+  musicDir = path.join(__dirname, '..', uploadDir, 'music');
+  imageDir = path.join(__dirname, '..', uploadDir, 'images');
+}
 
+// Ensure directories exist
 if (!fs.existsSync(musicDir)) fs.mkdirSync(musicDir, { recursive: true });
 if (!fs.existsSync(imageDir)) fs.mkdirSync(imageDir, { recursive: true });
 
@@ -48,23 +57,19 @@ router.post(
     const { title, artist, album, duration } = req.body;
     const { trackFile, coverArt } = req.files;
 
-    if (!trackFile) {
-      return res.status(400).json({ msg: 'No track file uploaded' });
-    }
-    if (!coverArt) {
-      return res.status(400).json({ msg: 'No cover art uploaded' });
+    if (!trackFile || !coverArt) {
+      return res.status(400).json({ msg: 'Both track file and cover art are required.' });
     }
 
     try {
-      // --- THIS IS THE CRITICAL FIX ---
-      // We are building the PUBLIC URL, not saving the private system path.
       const newTrack = new Track({
         title,
         artist,
         album,
         duration,
-        filePath: `/static/music/${trackFile[0].filename}`,     // <-- THE FIX
-        coverArtPath: `/static/images/${coverArt[0].filename}`, // <-- THE FIX
+        // We save the public URL path (/static/...), not the system path
+        filePath: `/static/music/${trackFile[0].filename}`,
+        coverArtPath: `/static/images/${coverArt[0].filename}`,
         uploadedBy: req.user.id
       });
 
@@ -78,8 +83,6 @@ router.post(
   }
 );
 
-// --- All other routes are correct ---
-
 // @route   GET api/tracks
 // @desc    Get all tracks
 // @access  Public
@@ -88,35 +91,31 @@ router.get('/', async (req, res) => {
     const tracks = await Track.find().sort({ createdAt: -1 });
     res.json(tracks);
   } catch (err) {
-    console.error("GET /api/tracks ERROR:", err);
     res.status(500).json({ msg: "Server Error", error: err.message });
   }
 });
+
 // @route   GET api/tracks/my-tracks
 // @desc    Get all tracks uploaded by the current user
 // @access  Private
 router.get('/my-tracks', authMiddleware, async (req, res) => {
   try {
-    // Find tracks where 'uploadedBy' matches the logged-in user's ID
     const tracks = await Track.find({ uploadedBy: req.user.id }).sort({ createdAt: -1 });
     res.json(tracks);
   } catch (err) {
-    console.error("GET /api/tracks/my-tracks ERROR:", err);
     res.status(500).json({ msg: "Server Error", error: err.message });
   }
 });
+
 // @route   GET api/tracks/:id
 // @desc    Get a single track by its ID
 // @access  Public
 router.get('/:id', async (req, res) => {
   try {
     const track = await Track.findById(req.params.id);
-    if (!track) {
-      return res.status(404).json({ msg: 'Track not found' });
-    }
+    if (!track) return res.status(404).json({ msg: 'Track not found' });
     res.json(track);
   } catch (err) {
-    console.error("GET /api/tracks/:id ERROR:", err);
     res.status(500).json({ msg: "Server Error", error: err.message });
   }
 });
